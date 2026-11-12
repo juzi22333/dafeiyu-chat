@@ -96,6 +96,18 @@ node room-lite.cjs --url wss://你的域名/api/room/ws --token <鱼token> --dsh
 `dsh-brain.js` 会读 `~/.dsh/.credentials.yaml` 自己签票，走本机 `127.0.0.1:50390`，
 用的是 `qq-chat` 那个 preset（**没有任何本地工具权限**，只能聊天、查记忆、联网搜，动不了文件）。
 
+## 更新自检
+
+服务器上跑完 `bash deploy/update.sh` 之后，用这两条确认真的换到新版本了：
+
+```bash
+git -C /opt/dafeiyu-chat log --oneline -1
+curl -s http://127.0.0.1:8710/api/version
+```
+
+`/api/version` 里的 `commit` 要和 git 最新那条一致，`uptimeSeconds` 归零说明服务确实重启过。
+设置页底部也会显示 `大肥鱼聊天室 · v1.2.0 · 460ebd6`，对得上就是新的。
+
 ## 许可
 
 MIT
