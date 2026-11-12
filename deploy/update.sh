@@ -41,7 +41,9 @@ node --check room.js
 [ -f room-lite.cjs ] && node --check room-lite.cjs || true
 
 echo "== 重启 =="
-if systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE}.service"; then
+# 注意：别用 grep -q，它一命中就退出会让 systemctl 吃 SIGPIPE，
+# 在 set -o pipefail 下整条管道算失败，于是永远走进「没找到服务」分支。
+if systemctl list-unit-files --no-pager 2>/dev/null | grep "^${SERVICE}.service" >/dev/null; then
   sudo systemctl restart "$SERVICE"
   sleep 2
   systemctl is-active "$SERVICE"
