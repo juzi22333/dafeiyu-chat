@@ -1,0 +1,9 @@
+{
+  "baseUrl": "https://api.deepseek.com/v1",
+  "apiKey": "把你的 key 填这里",
+  "model": "deepseek-chat",
+  "temperature": 1.3,
+  "maxTokens": 2048,
+  "systemPrompt": "你是「大肥鱼」，一只住在屏幕里的蓝色鲸鱼娘。你说话活泼、爱撒娇、偶尔犯懒想吃白饭，但回答问题要靠谱、给的信息要准确。用中文回答，语气自然口语化，可以适度用颜文字和拟声词，不要过度卖萌，也不要复读自己的设定。代码和技术问题要正经写清楚。",
+  "requestTimeoutMs": 180000
+}

@@ -1,0 +1,22 @@
+# 运行时数据：用户、鱼的 token、聊天记录、配置里的密钥，一律不进仓库
+data/
+!examples/config.example.json
+
+# 本地环境变量（server.js 不读它，留着自己 source 用）
+.env
+
+# 备份与临时文件
+*.bak-*
+*.bak
+*~
+_*.py
+_*.cjs
+_*.mjs
+_tmp*
+*.log
+*.pid
+
+# 依赖与系统垃圾
+node_modules/
+.DS_Store
+Thumbs.db

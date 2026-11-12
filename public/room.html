@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#f3f7fc">
+<meta name="color-scheme" content="light">
+<title>聊天</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="聊天">
+<link rel="stylesheet" href="/style.css?v=20261112p">
+<link rel="stylesheet" href="/room.css?v=20261112p">
+</head>
+<body data-page="room">
+<div class="app" id="app">
+
+  <!-- ======================= 聊天：会话列表 ======================= -->
+  <section class="page" id="pageChats">
+    <header class="pagebar">
+      <div class="pagebar-title">聊天</div>
+      <div class="pagebar-actions">
+        <button class="icon-btn" id="btnPlus" type="button" aria-label="更多" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 右上角「+」下拉菜单（仿 QQ：白卡竖排，左图标右文字） -->
+    <div class="plus-menu" id="plusMenu" hidden role="menu">
+      <button class="plus-item" type="button" data-act="friend" role="menuitem">
+        <span class="plus-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="8.5" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.6 19c.5-3 3-4.6 5.9-4.6S14.9 16 15.4 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M18.5 7v6M15.5 10h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </span>
+        <span class="plus-txt">加好友</span>
+      </button>
+      <button class="plus-item" type="button" data-act="group" role="menuitem">
+        <span class="plus-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8.5" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="16" cy="8.5" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M2.8 19c.4-2.8 2.5-4.3 5.2-4.3s4.8 1.5 5.2 4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.6 14.9c2.4-.3 4.4 1.1 4.8 3.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </span>
+        <span class="plus-txt">建群</span>
+      </button>
+      <button class="plus-item" type="button" data-act="join" role="menuitem">
+        <span class="plus-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.8 15.8 21 21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="plus-txt">搜索进群</span>
+      </button>
+      <button class="plus-item" type="button" data-act="bots" role="menuitem">
+        <span class="plus-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14c0-4.4 3.6-8 8-8s8 3.6 8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M4 14c0 3 3.6 5 8 5s8-2 8-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="9.4" cy="13" r="1.1" fill="currentColor"/><circle cx="14.6" cy="13" r="1.1" fill="currentColor"/></svg>
+        </span>
+        <span class="plus-txt">我的鱼</span>
+      </button>
+    </div>
+
+    <div class="conv-list" id="roomList"></div>
+  </section>
+
+  <!-- ======================= 聊天页（点会话进来） ======================= -->
+  <section class="page page-chat" id="pageChat" hidden>
+    <header class="topbar">
+      <button class="icon-btn" id="btnBack" type="button" aria-label="返回">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="topbar-title" id="roomTitle" role="button" tabindex="0" title="会话信息">会话</div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnRoomInfo" type="button" aria-label="会话信息">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="composer-wrap">
+      <div class="emoji-panel" id="emojiPanel" hidden></div>
+      <div class="emoji-panel at-panel" id="atPanel" hidden></div>
+      <form class="composer" id="composer">
+        <button class="emoji-btn" id="btnEmoji" type="button" aria-label="表情">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="10" r="1.3" fill="currentColor"/><path d="M8.2 14.2c1 1.5 2.3 2.2 3.8 2.2s2.8-.7 3.8-2.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </button>
+        <button class="emoji-btn at-btn" id="btnAt" type="button" aria-label="提到某人">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 8v5.5a2.5 2.5 0 0 0 4.4 1.6A8.5 8.5 0 1 0 17 19.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </button>
+        <textarea id="input" rows="1" placeholder="说点什么…" autocomplete="off"></textarea>
+        <button class="send-btn" id="sendBtn" type="submit" aria-label="发送">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12Z" fill="currentColor"/></svg>
+        </button>
+      </form>
+      <div class="composer-foot"><span id="roomMeta"></span></div>
+    </div>
+  </section>
+
+  <!-- ======================= 聊天信息（右上角菜单点进来，仿 QQ） ======================= -->
+  <section class="page page-chatinfo" id="pageChatInfo" hidden>
+    <header class="topbar">
+      <button class="icon-btn" id="btnInfoBack" type="button" aria-label="返回">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="topbar-title">聊天信息</div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnInfoMore" type="button" aria-label="更多">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll-area info-scroll" id="infoBody"></div>
+  </section>
+
+  <!-- ======================= 联系人 ======================= -->
+  <section class="page" id="pageContacts" hidden>
+    <header class="pagebar">
+      <div class="pagebar-title">联系人</div>
+      <div class="pagebar-actions">
+        <button class="icon-btn" id="btnAddFriend" type="button" aria-label="加好友">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="8.5" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.6 19c.5-3 3-4.6 5.9-4.6S14.9 16 15.4 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M18.5 7v6M15.5 10h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll-area">
+      <div class="inbox" id="inbox" hidden></div>
+      <div class="section-title">好友</div>
+      <div class="contact-list" id="friendList"></div>
+      <div class="section-title">群聊</div>
+      <div class="contact-list" id="groupList"></div>
+    </div>
+  </section>
+
+  <!-- ======================= 设置 ======================= -->
+  <section class="page" id="pageSettings" hidden>
+    <header class="pagebar"><div class="pagebar-title">设置</div></header>
+    <div class="scroll-area">
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">自动同意好友申请</div>
+          <div class="setting-sub">开着的话，别人加你不用等，直接就成好友</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="setAuto"><span class="switch-track"></span></label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">回车发送</div>
+          <div class="setting-sub">按回车直接发出去，Shift+回车换行</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="setEnter" checked><span class="switch-track"></span></label>
+      </div>
+      <button class="setting-row as-btn" id="rowNick" type="button">
+        <div class="setting-text">
+          <div class="setting-name">昵称</div>
+          <div class="setting-sub" id="setNickVal">—</div>
+        </div>
+        <span class="setting-arrow">›</span>
+      </button>
+      <button class="setting-row as-btn" id="rowPassword" type="button">
+        <div class="setting-text"><div class="setting-name">更新密码</div></div>
+        <span class="setting-arrow">›</span>
+      </button>
+      <button class="setting-row as-btn" id="rowBots" type="button">
+        <div class="setting-text"><div class="setting-name">我的鱼</div><div class="setting-sub">看鱼的状态、拿一行指令</div></div>
+        <span class="setting-arrow">›</span>
+      </button>
+      <button class="setting-row as-btn" id="rowApp" type="button">
+        <div class="setting-text">
+          <div class="setting-name">软件更新<i class="dot-red" id="appDot" hidden></i></div>
+          <div class="setting-sub" id="appSub">检查中…</div>
+        </div>
+        <span class="setting-arrow">›</span>
+      </button>
+      <button class="setting-btn danger" id="setLogout" type="button">退出登录</button>
+      <div class="setting-tip" id="setVersion">聊天室</div>
+    </div>
+  </section>
+
+  <!-- ======================= 个人资料 ======================= -->
+  <section class="page" id="pageMe" hidden>
+    <header class="pagebar"><div class="pagebar-title">个人资料</div></header>
+    <div class="scroll-area">
+      <div class="me-card">
+        <div class="me-avatar big" id="meAvatar">?</div>
+        <div class="me-card-info">
+          <div class="profile-name" id="meName">未登录</div>
+          <div class="modal-tip" id="meMeta">—</div>
+        </div>
+      </div>
+      <div class="info-row"><span>UID</span><span class="uid-wrap"><i class="crown-badge" id="meCrown" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.2 3.1L12 4.5l4.8 6.6L21 8l-1.7 10.2H4.7L3 8Z" fill="currentColor"/></svg></i><b id="meUid">—</b></span></div>
+      <div class="info-row"><span>账号</span><b id="meAccount">—</b></div>
+      <div class="info-row"><span>好友</span><b id="meFriends">0</b></div>
+      <div class="info-row"><span>我的鱼</span><b id="meBots">—</b></div>
+      <button class="setting-btn" id="meEditNick" type="button">改昵称</button>
+      <button class="setting-btn" id="meGotoBots" type="button">管理我的鱼</button>
+    </div>
+  </section>
+
+  <!-- ======================= 底部 tab ======================= -->
+  <nav class="tabbar" id="tabBar">
+    <button class="tab-item active" type="button" data-tab="chats">
+      <span class="tab-ico">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v9.2H9.6L5.4 19v-3.3H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="tab-txt">聊天</span>
+      <span class="tab-badge" id="tabBadge" hidden>0</span>
+    </button>
+    <button class="tab-item" type="button" data-tab="contacts">
+      <span class="tab-ico">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 19.4c.6-3.4 3.4-5.2 7-5.2s6.4 1.8 7 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      <span class="tab-txt">联系人</span>
+    </button>
+    <button class="tab-item" type="button" data-tab="settings">
+      <span class="tab-ico">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.4v2.2M12 18.4v2.2M4.6 12H2.4M21.6 12h-2.2M6.7 6.7 5.1 5.1M18.9 18.9l-1.6-1.6M17.3 6.7l1.6-1.6M5.1 18.9l1.6-1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <i class="tab-dot" id="tabDot" hidden></i>
+      </span>
+      <span class="tab-txt">设置</span>
+    </button>
+    <button class="tab-item" type="button" data-tab="me">
+      <span class="tab-ico">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.6 20c.7-3.6 3.7-5.6 7.4-5.6s6.7 2 7.4 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      <span class="tab-txt">个人资料</span>
+    </button>
+  </nav>
+
+  <!-- 弹窗 -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" id="modalTitle">标题</div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot">
+        <button class="ghost-btn" id="modalClose" type="button">关掉</button>
+        <button class="auth-btn small" id="modalOk" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint-bar" id="hintBar" hidden></div>
+</div>
+<script src="/room-client.js?v=20261112p"></script>
+</body>
+</html>

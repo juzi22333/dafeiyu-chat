@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#f3f7fc">
+<meta name="color-scheme" content="light">
+<title>看看 · 聊天室</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=20261112p">
+<link rel="stylesheet" href="/room.css?v=20261112p">
+</head>
+<body data-page="view">
+<div class="app">
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="roomTitle">只读</div>
+    </header>
+
+    <div class="messages" id="messages">
+      <div class="empty-tip">正在打开…</div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="view-cta">
+        <a class="auth-btn small" id="btnJoin" href="/register">想说话？注册一个</a>
+        <a class="ghost-btn small" id="btnLogin" href="/login">我有账号</a>
+      </div>
+      <div class="composer-foot"><span id="roomMeta">只读，看不了就刷新一下</span></div>
+    </div>
+  </main>
+</div>
+<div class="hint-bar" id="hintBar" hidden></div>
+<script src="/view-client.js?v=20261112p"></script>
+</body>
+</html>

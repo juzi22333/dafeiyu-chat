@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#f3f7fc">
+<meta name="color-scheme" content="light">
+<title>我的鱼</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="我的鱼">
+<link rel="stylesheet" href="/style.css?v=20261112p">
+<link rel="stylesheet" href="/room.css?v=20261112p">
+</head>
+<body data-page="bots">
+<div class="app" id="app">
+  <main class="main bots-main">
+    <header class="topbar">
+      <a class="icon-btn" id="btnBack" href="/room" aria-label="返回聊天室">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <div class="topbar-title">我的鱼</div>
+      <div class="topbar-actions">
+        <button class="ghost-btn small-btn" id="btnNewBot" type="button">加一条</button>
+      </div>
+    </header>
+
+    <div class="messages bots-body" id="botsBody">
+      <div class="empty-tip">读取中…</div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer-foot"><span id="botsMeta">建鱼 → DSH 那边跑起来 → 拉进群</span></div>
+    </div>
+  </main>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" id="modalTitle">标题</div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot">
+        <button class="ghost-btn" id="modalClose" type="button">关掉</button>
+        <button class="auth-btn small" id="modalOk" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint-bar" id="hintBar" hidden></div>
+</div>
+<script src="/bots-client.js?v=20261112p"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "dafeiyu-chat",
+  "version": "1.2.0",
+  "private": false,
+  "description": "对接大肥鱼（DeepSeek 鲸鱼娘）的轻量网页聊天软件，零依赖 Node 服务",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["chat", "qq", "deepseek", "websocket", "zero-dependency"],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

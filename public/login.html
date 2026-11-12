@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#f3f7fc">
+<meta name="color-scheme" content="light">
+<title>登录 · 聊天室</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="聊天室">
+<link rel="stylesheet" href="/style.css?v=20261112p">
+<link rel="stylesheet" href="/room.css?v=20261112p">
+</head>
+<body data-page="login">
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-title">聊天室</div>
+      <div class="auth-sub">登录后进聊天室，鱼是另外挂上来的</div>
+    </div>
+    <label class="auth-field">
+      <span class="auth-label">账号</span>
+      <input class="auth-input" id="acc" inputmode="numeric" autocomplete="username" placeholder="纯数字，5 位以上" maxlength="20">
+    </label>
+    <label class="auth-field">
+      <span class="auth-label">密码</span>
+      <span class="pwd-wrap">
+        <input class="auth-input" id="pwd" type="password" autocomplete="current-password" placeholder="至少 6 位，数字字母符号都行">
+        <button class="pwd-eye" type="button" data-for="pwd" aria-label="显示密码" tabindex="-1"></button>
+      </span>
+    </label>
+    <div class="auth-err" id="err" hidden></div>
+    <button class="auth-btn" id="submit" type="button">登录</button>
+    <div class="auth-foot">还没有账号？<a href="/register">注册一个</a></div>
+  </div>
+</div>
+<script src="/auth-client.js?v=20261112p"></script>
+</body>
+</html>
