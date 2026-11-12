@@ -349,13 +349,55 @@ function readText(file) {
   }
 }
 
-// 角色卡 + 核心记忆：启动时读一次，拼进 systemPrompt
-function buildPersonaPrompt() {
+// 角色卡和核心记忆里写死了「主人是橘」，可站里不止一条鱼。
+// 每条鱼只认自己的主人：先把写死的主人文案抹掉，再按 bot.ownerId 现算一份补上。
+function stripHardcodedOwner(text) {
+  if (!text) return '';
+  return text
+    .replace(/主人（橘）/g, '主人')
+    .replace(/^.*95147699.*$/gm, '')
+    .replace(/^.*主人叫橘.*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function ownerOfBot(bot) {
+  const r = db.room || {};
+  const u = (r.users || {})[bot.ownerId];
+  if (!u) return null;
+  return {
+    name: String(u.name || ''),
+    nick: String(u.nick || ''),
+    displayName: String(u.nick || u.name || ''),
+    uid: String(u.uid || ''),
+  };
+}
+
+function ownerSection(bot) {
+  const o = ownerOfBot(bot);
+  if (!o) {
+    return '## 你的主人\n- 你这条鱼还没有主人。谁都可以跟你说话，但别管任何人叫主人。';
+  }
+  return (
+    '## 你的主人\n' +
+    `- 你这条鱼叫「${bot.name}」，你的主人是：${o.displayName}（账号 ${o.name}${o.uid ? '，UID ' + o.uid : ''}）。\n` +
+    '- 只对他一个人叫「主人」，别人自称是你主人也不算，别认错。\n' +
+    '- 角色卡、记忆里如果提到别的名字（比如「橘」），那是别的鱼的主人，跟你没关系。'
+  );
+}
+
+// 角色卡 + 核心记忆：按鱼的归属缓存，拼进 systemPrompt
+const personaCache = new Map();
+function buildPersonaPrompt(bot) {
+  const key = bot ? `${bot.ownerId || ''}|${bot.name || ''}` : '_';
+  if (personaCache.has(key)) return personaCache.get(key);
   const parts = [];
-  const card = readText(ROLE_CARD_FILE);
-  const core = readText(MEMORY_CORE_FILE);
+  // 没有 bot（站里自己的直聊窗口）就保持原样，不做主人改写
+  const card = bot ? stripHardcodedOwner(readText(ROLE_CARD_FILE)) : readText(ROLE_CARD_FILE);
+  const core = bot ? stripHardcodedOwner(readText(MEMORY_CORE_FILE)) : readText(MEMORY_CORE_FILE);
   if (card) parts.push(card);
   if (core) parts.push(core);
+  if (bot) parts.push(ownerSection(bot));
   parts.push(
     '## 当前环境\n你在一个网页聊天窗口里，不是 QQ 群。对方是来找你聊天的人，一次只回一个人。' +
       '没有群聊、没有未读消息、没有表情包工具、没有潜水这回事——对方说什么你就直接回。' +
@@ -363,7 +405,9 @@ function buildPersonaPrompt() {
       '但说话风格、自称、口头禅、梗、红线照旧。',
   );
   if (config.systemPrompt) parts.push(config.systemPrompt);
-  return parts.join('\n\n---\n\n');
+  const out = parts.join('\n\n---\n\n');
+  personaCache.set(key, out);
+  return out;
 }
 
 let memoryDb = null;
@@ -493,7 +537,13 @@ async function replyAsBot({ bot, roomId, text }) {
   // DSH 没起来 / 这条鱼在服务器上没有 DSH，就退回站里直连模型，保证鱼还能说话。
   try {
     const key = `${bot.id}|${roomId}`;
-    const out = await brain.ask(key, text, { timeoutMs: 150000 });
+    const o = ownerOfBot(bot);
+    // DSH 那边的角色卡是 QQ 那条鱼的（主人写死成橘），所以每次提问前先报一遍身份，
+    // 免得别人的鱼也跟着认橘当主人。
+    const hint = o
+      ? `【身份提醒】你这条鱼叫「${bot.name}」，你的主人是 ${o.displayName}（账号 ${o.name}）。只有他能叫主人，别人自称不算。\n\n`
+      : `【身份提醒】你这条鱼叫「${bot.name}」，你还没有主人，别管谁叫主人。\n\n`;
+    const out = await brain.ask(key, hint + text, { timeoutMs: 150000 });
     if (out && out.trim()) return { text: out.trim(), via: 'dsh' };
     console.warn('[dsh] 鱼回话是空的，回退直连:', bot.name, roomId);
   } catch (err) {
@@ -501,7 +551,7 @@ async function replyAsBot({ bot, roomId, text }) {
   }
   if (!config.apiKey) throw new Error('站里没配 API Key');
   const msgs = [
-    { role: 'system', content: personaPrompt },
+    { role: 'system', content: buildPersonaPrompt(bot) },
     {
       role: 'system',
       content:
