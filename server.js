@@ -860,9 +860,9 @@ async function serveStatic(req, res, pathname) {
   if (rel === '/bots' || rel === '/bots/') rel = '/bots.html';
   // 只读访客页：/v/<key> 直接给页面，页面自己去 /api/room/view 拿消息
   if (rel === '/view' || rel === '/view/' || /^\/v\/[\w-]+$/.test(rel)) rel = '/view.html';
-  // 一行指令要能直接把接入器下下来
-  if (rel === '/room-lite.cjs') {
-    const litePath = path.join(ROOT, 'room-lite.cjs');
+  // 一行指令要能直接把接入器下下来（连 dsh-brain.js 一起给，加了 --dsh 才跑得起来）
+  if (rel === '/room-lite.cjs' || rel === '/dsh-brain.js') {
+    const litePath = path.join(ROOT, rel.slice(1));
     try {
       const stat = await fsp.stat(litePath);
       res.writeHead(200, {
