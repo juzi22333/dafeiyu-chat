@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const VERSION = 'dafeiyu-room-v32';
+const VERSION = 'dafeiyu-room-v33';
 const SHELL = [
   '/room',
   '/room.html',

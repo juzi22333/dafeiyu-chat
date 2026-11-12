@@ -13,8 +13,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="聊天">
-<link rel="stylesheet" href="/style.css?v=20261112r">
-<link rel="stylesheet" href="/room.css?v=20261112r">
+<link rel="stylesheet" href="/style.css?v=20261112s">
+<link rel="stylesheet" href="/room.css?v=20261112s">
 </head>
 <body data-page="room">
 <div class="app" id="app">
@@ -24,6 +24,9 @@
     <header class="pagebar">
       <div class="pagebar-title">聊天</div>
       <div class="pagebar-actions">
+        <button class="icon-btn" id="btnReadAll" type="button" aria-label="全部已读" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.4 13.2 7 17.8l8.9-8.9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.6 17.2l.7.7 8.3-8.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <button class="icon-btn" id="btnPlus" type="button" aria-label="更多" aria-haspopup="menu" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
         </button>
@@ -226,6 +229,15 @@
     </button>
   </nav>
 
+  <!-- 会话长按菜单：置顶 / 标为已读 / 删除（仿 QQ 那三个按钮） -->
+  <div class="row-menu-mask" id="rowMenuMask" hidden>
+    <div class="row-menu" id="rowMenu" role="menu">
+      <button class="row-menu-item" type="button" data-rowact="pin" role="menuitem">置顶</button>
+      <button class="row-menu-item" type="button" data-rowact="read" role="menuitem">标为已读</button>
+      <button class="row-menu-item" type="button" data-rowact="del" role="menuitem">删除</button>
+    </div>
+  </div>
+
   <!-- 弹窗 -->
   <div class="modal" id="modal" hidden>
     <div class="modal-card">
@@ -240,6 +252,6 @@
 
   <div class="hint-bar" id="hintBar" hidden></div>
 </div>
-<script src="/room-client.js?v=20261112r"></script>
+<script src="/room-client.js?v=20261112s"></script>
 </body>
 </html>

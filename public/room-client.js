@@ -33,6 +33,8 @@ const state = {
   enterToSend: localStorage.getItem('room-enter-send') !== '0',
   cacheTimer: 0,
   route: 'list',
+  menuRoom: null,
+  menuAt: 0,
   /* 软件更新：壳子在 UA 里报自己的 versionCode（DafeiyuApp/3），
      拿它跟服务端 /api/app/latest 比，才知道要不要亮红点。 */
   appCode: 0,
@@ -89,7 +91,7 @@ function writeCache() {
     }));
     localStorage.setItem(
       CACHE_KEY,
-      JSON.stringify({ at: new Date().toISOString(), me: state.me, rooms, messages: byRoom }),
+      JSON.stringify({ at: new Date().toISOString(), me: state.me, rooms, unread: state.unread, messages: byRoom }),
     );
   } catch (_) {}
 }
@@ -254,21 +256,53 @@ function presenceDot(online) {
   return '<i class="presence-dot ' + (online ? 'on' : 'off') + '"></i>';
 }
 
+/* 会话行的本地状态：置顶 / 隐藏（删掉的会话）都记在 localStorage，
+   跟群信息页里的「设为置顶」「隐藏会话」开关共用同一批 key。 */
+function isPinned(roomId) {
+  try {
+    return localStorage.getItem('room-pin-' + roomId) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function isHiddenRoom(room) {
+  try {
+    const at = localStorage.getItem('room-hide-' + room.roomId);
+    if (!at || at === '0') return false;
+    // 信息页的开关只写 '1'，那就一直藏着；长按菜单删的写时间，之后来新消息自动冒回来
+    if (at === '1') return true;
+    const lastAt = room.last && room.last.at ? Date.parse(room.last.at) : 0;
+    const hideAt = Date.parse(at);
+    if (lastAt && hideAt && lastAt > hideAt) {
+      localStorage.removeItem('room-hide-' + room.roomId);
+      return false;
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function renderRooms() {
   const box = $('#roomList');
   if (!box) return;
   box.innerHTML = '';
-  if (!state.rooms.length) {
+  // 删掉的会话先不显示，等它来新消息再冒回来
+  const list = state.rooms.filter((r) => !isHiddenRoom(r));
+  // 置顶的排最上面，其余保持服务端给的顺序
+  list.sort((a, b) => (isPinned(b.roomId) ? 1 : 0) - (isPinned(a.roomId) ? 1 : 0));
+  if (!list.length) {
     box.innerHTML =
       '<div class="list-empty"><div class="list-empty-title">还没有会话</div>' +
       '<div class="list-empty-sub">右上角「+」加好友、建群，或者搜索群号进群</div></div>';
     return;
   }
-  for (const r of state.rooms) {
+  for (const r of list) {
     const av = roomAvatar(r);
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'chat-row' + (r.roomId === state.roomId ? ' active' : '');
+    row.className = 'chat-row' + (r.roomId === state.roomId ? ' active' : '') + (isPinned(r.roomId) ? ' pinned' : '');
     const unread = state.unread[r.roomId] || 0;
     const last = r.last;
     const preview = last ? (r.type === 'group' ? last.senderName + '：' : '') + last.text : '还没有消息';
@@ -282,17 +316,173 @@ function renderRooms() {
       '<div class="chat-line2"><span class="chat-preview">' + esc(preview) + '</span>' +
       (unread ? '<span class="chat-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
       '</div></div>';
-    row.addEventListener('click', () => enterRoom(r.roomId));
+    bindRowGesture(row, r);
     box.appendChild(row);
   }
 }
 
-function renderBadge() {
-  const badge = $('#tabBadge');
-  if (!badge) return;
+/* 长按会话行：弹出「置顶 / 标为已读 / 删除」（仿 QQ 那三个按钮）。
+   触屏用 touch 计时，桌面用右键菜单，鼠标也支持按住不动。 */
+const ROW_LONG_PRESS_MS = 460;
+
+function bindRowGesture(row, room) {
+  let timer = 0;
+  let sx = 0;
+  let sy = 0;
+  let moved = false;
+
+  const start = (e) => {
+    const p = e.touches ? e.touches[0] : e;
+    if (!p) return;
+    sx = p.clientX;
+    sy = p.clientY;
+    moved = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = 0;
+      if (moved) return;
+      openRowMenu(room, sx, sy);
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate(12);
+        } catch (_) {}
+      }
+    }, ROW_LONG_PRESS_MS);
+  };
+  const move = (e) => {
+    const p = e.touches ? e.touches[0] : e;
+    if (!p) return;
+    if (Math.abs(p.clientX - sx) > 10 || Math.abs(p.clientY - sy) > 10) {
+      moved = true;
+      clearTimeout(timer);
+      timer = 0;
+    }
+  };
+  const stop = () => {
+    clearTimeout(timer);
+    timer = 0;
+  };
+
+  row.addEventListener('touchstart', start, { passive: true });
+  row.addEventListener('touchmove', move, { passive: true });
+  row.addEventListener('touchend', stop);
+  row.addEventListener('touchcancel', stop);
+  row.addEventListener('mousedown', start);
+  row.addEventListener('mousemove', move);
+  row.addEventListener('mouseup', stop);
+  row.addEventListener('mouseleave', stop);
+  row.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openRowMenu(room, e.clientX, e.clientY);
+  });
+  row.addEventListener('click', (e) => {
+    // 刚长按弹出菜单，松手那一下的 click 不要顺手进会话
+    if (Date.now() - (state.menuAt || 0) < 700) {
+      e.preventDefault();
+      return;
+    }
+    enterRoom(room.roomId);
+  });
+}
+
+function openRowMenu(room, x, y) {
+  const mask = $('#rowMenuMask');
+  const menu = $('#rowMenu');
+  if (!mask || !menu) return;
+  state.menuRoom = room;
+  state.menuAt = Date.now();
+  const pinBtn = menu.querySelector('[data-rowact="pin"]');
+  if (pinBtn) pinBtn.textContent = isPinned(room.roomId) ? '取消置顶' : '置顶';
+  const readBtn = menu.querySelector('[data-rowact="read"]');
+  if (readBtn) readBtn.hidden = !(state.unread[room.roomId] > 0);
+  mask.hidden = false;
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+  const box = menu.getBoundingClientRect();
+  const pad = 8;
+  let left = x - box.width / 2;
+  left = Math.max(pad, Math.min(left, window.innerWidth - box.width - pad));
+  let top = y - box.height - 14;
+  if (top < pad) top = y + 18;
+  top = Math.max(pad, Math.min(top, window.innerHeight - box.height - pad));
+  menu.style.left = Math.round(left) + 'px';
+  menu.style.top = Math.round(top) + 'px';
+}
+
+function closeRowMenu() {
+  const mask = $('#rowMenuMask');
+  if (mask) mask.hidden = true;
+  state.menuRoom = null;
+}
+
+function doRowAction(act, room) {
+  if (act === 'pin') {
+    const key = 'room-pin-' + room.roomId;
+    const on = isPinned(room.roomId);
+    try {
+      if (on) localStorage.removeItem(key);
+      else localStorage.setItem(key, '1');
+    } catch (_) {}
+    renderRooms();
+    toast(on ? '取消置顶了' : '置顶了，会一直排最上面');
+    return;
+  }
+  if (act === 'read') {
+    state.unread[room.roomId] = 0;
+    renderRooms();
+    renderBadge();
+    saveCache(true);
+    toast('标为已读');
+    return;
+  }
+  if (act === 'del') {
+    state.unread[room.roomId] = 0;
+    state.rooms = state.rooms.filter((r) => r.roomId !== room.roomId);
+    try {
+      localStorage.setItem('room-hide-' + room.roomId, new Date().toISOString());
+    } catch (_) {}
+    // 本地缓存里这个会话的消息一起清掉
+    const c = readCache();
+    if (c && c.messages && c.messages[room.roomId]) {
+      delete c.messages[room.roomId];
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+      } catch (_) {}
+    }
+    if (state.roomId === room.roomId) {
+      state.roomId = '';
+      state.messages = [];
+      $('#pageChat').hidden = true;
+      $('#pageChats').hidden = false;
+    }
+    renderRooms();
+    renderBadge();
+    saveCache(true);
+    toast('会话删了，来新消息会自己回来');
+  }
+}
+
+/* 一键已读：把列表里所有红点清掉 */
+function readAllRooms() {
   const total = Object.values(state.unread).reduce((a, b) => a + b, 0);
-  badge.hidden = !total;
-  badge.textContent = total > 99 ? '99+' : String(total);
+  if (!total) return;
+  state.unread = {};
+  renderRooms();
+  renderBadge();
+  saveCache(true);
+  toast('全部标为已读');
+}
+
+function renderBadge() {
+  const total = Object.values(state.unread).reduce((a, b) => a + b, 0);
+  const badge = $('#tabBadge');
+  if (badge) {
+    badge.hidden = !total;
+    badge.textContent = total > 99 ? '99+' : String(total);
+  }
+  // 有未读才在顶栏露出「一键已读」按钮
+  const readAll = $('#btnReadAll');
+  if (readAll) readAll.hidden = !total;
 }
 
 /* ------------------------------- 渲染：消息 ------------------------------- */
@@ -707,6 +897,10 @@ function handleWS(data) {
     // 会话列表的最后一条跟着变（不用刷新）
     const room = state.rooms.find((r) => r.roomId === msg.roomId);
     if (room) {
+      // 之前删掉的会话，来了新消息就自己冒回来
+      try {
+        localStorage.removeItem('room-hide-' + room.roomId);
+      } catch (_) {}
       room.last = { text: msg.text, at: msg.at, senderName: msg.senderName };
       const idx = state.rooms.indexOf(room);
       if (idx > 0) {
@@ -1876,6 +2070,32 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Escape') closePlus();
     });
   }
+
+  /* 一键已读：顶栏那个双勾按钮 */
+  const readAllBtn = $('#btnReadAll');
+  if (readAllBtn) readAllBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    readAllRooms();
+  });
+
+  /* 会话长按菜单：点遮罩关掉，点按钮执行 */
+  const rowMask = $('#rowMenuMask');
+  const rowMenu = $('#rowMenu');
+  if (rowMask) rowMask.addEventListener('click', closeRowMenu);
+  if (rowMenu)
+    rowMenu.addEventListener('click', (e) => {
+      const item = e.target.closest && e.target.closest('[data-rowact]');
+      if (!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const room = state.menuRoom;
+      const act = item.dataset.rowact;
+      closeRowMenu();
+      if (room) doRowAction(act, room);
+    });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeRowMenu();
+  });
 
   /* 联系人页 */
   const addFriend = $('#btnAddFriend');
