@@ -147,7 +147,14 @@ class DshBrain {
   /* ---- 会话 ---- */
 
   async ensureWorkspace() {
-    const dir = path.join(__dirname, 'data', 'room-dsh');
+    // 默认挂到 QQ 鱼的工作区，两边共用同一本 meow-memory 库（记忆互通）。
+    // 想给聊天室单独一本账，就把 DSH_ROOM_WORKSPACE 指回自己的目录。
+    const qqWorkspace = path.join(
+      os.homedir(), 'Documents', 'deepseek-harness', 'default-workspace', 'qq', 'qq-bridge', 'state', 'agents'
+    );
+    const wanted = process.env.DSH_ROOM_WORKSPACE || qqWorkspace;
+    // 目标目录不存在（换了机器 / 没装 QQ 桥接）就退回站里自己的目录，不乱建
+    const dir = fs.existsSync(wanted) ? wanted : path.join(__dirname, 'data', 'room-dsh');
     fs.mkdirSync(dir, { recursive: true });
     const value = await this.call('workspace.create', { path: dir });
     return value && value.workspace ? value.workspace.workspaceId : value.workspaceId;
