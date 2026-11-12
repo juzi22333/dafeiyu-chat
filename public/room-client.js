@@ -398,14 +398,23 @@ function renderMessages(opts) {
 }
 
 
-function appendMessageToView(msg) {
+/* 追加一条消息。
+   opts.stickBottom：自己发的消息一定滚到底（哪怕正在往上翻）
+   默认：原本贴着底部附近才跟着滚，翻上去了就不拽回来 */
+function appendMessageToView(msg, opts) {
   const box = $('#messages');
   if (!box) return;
+  const o = opts || {};
   if (!state.messages.length) box.innerHTML = '';
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   state.messages.push(msg);
   box.appendChild(msgNode(msg));
-  if (nearBottom) box.scrollTop = box.scrollHeight;
+  if (o.stickBottom || nearBottom) {
+    const smooth = box.style.scrollBehavior;
+    box.style.scrollBehavior = 'auto';
+    box.scrollTop = box.scrollHeight;
+    box.style.scrollBehavior = smooth || '';
+  }
   saveCache();
 }
 
@@ -687,7 +696,9 @@ function handleWS(data) {
   if (data.type === 'message' && data.message) {
     const msg = data.message;
     if (msg.roomId === state.roomId) {
-      if (!state.messages.some((m) => m.id === msg.id)) appendMessageToView(msg);
+      // 自己发的（WS 先到）也强制到底；别人的只在原本贴底时才跟
+      const mine = msg.kind === 'user' && state.me && msg.senderId === state.me.id;
+      if (!state.messages.some((m) => m.id === msg.id)) appendMessageToView(msg, { stickBottom: !!mine });
     } else {
       // 不在当前会话：算未读，红点跳出来
       state.unread[msg.roomId] = (state.unread[msg.roomId] || 0) + 1;
@@ -1562,7 +1573,7 @@ function bindShareButtons() {
 async function send(text) {
   if (!state.roomId) return;
   const r = await api('/api/room/messages', { method: 'POST', body: JSON.stringify({ room: state.roomId, text }) });
-  if (!state.messages.some((m) => m.id === r.message.id)) appendMessageToView(r.message);
+  if (!state.messages.some((m) => m.id === r.message.id)) appendMessageToView(r.message, { stickBottom: true });
 }
 
 /* ------------------------------ 设置里的两个弹窗 ------------------------------ */
