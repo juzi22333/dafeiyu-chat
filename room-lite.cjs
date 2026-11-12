@@ -76,8 +76,56 @@ function brainClient() {
   return dshBrain;
 }
 
-async function askDsh(roomId, msg) {
-  const line = `${msg.senderName || '有人'}：${msg.text}`;
+// 每个房间自己记一份最近聊天记录。DSH 会话虽然也有上下文，
+// 但它一次只看到「当前这一句」，群里几个人同时说话就接不上茬；
+// 而且生成期间新来的消息以前是直接丢掉的，鱼等于没听见。
+const HIST = new Map(); // roomId -> [{ name, text, self }]
+const HIST_MAX = 24;
+const PENDING = new Map(); // roomId -> [{ name, text }]  攒着还没答的
+const DEBOUNCE_MS = 1500; // 这么短时间内连着来的几句，合成一次回
+const debounceTimers = new Map();
+
+// 跟 QQ 群一个脾气：被点名/被问才答，别每句都插嘴。
+// 两条鱼互相接话会无限刷屏，所以别的鱼说的话只在被点名时才接。
+let BOT_NAME = '小鱼';
+const REPLY_PROB = 0.06;
+
+function looksAddressed(text) {
+  const t = String(text || '');
+  if (!t.trim()) return false;
+  if (BOT_NAME && t.includes(BOT_NAME)) return true;
+  if (BOT_NAME && t.includes('@' + BOT_NAME)) return true;
+  if (/[?？]\s*$/.test(t)) return true;
+  if (/(吗|呢|怎么|为什么|啥|多少|哪个|谁|能不能|可不可以|有没有|是不是)/.test(t)) return true;
+  return Math.random() < REPLY_PROB;
+}
+
+function pushHist(roomId, name, text, self) {
+  let arr = HIST.get(roomId);
+  if (!arr) {
+    arr = [];
+    HIST.set(roomId, arr);
+  }
+  arr.push({ name, text, self });
+  if (arr.length > HIST_MAX) arr.splice(0, arr.length - HIST_MAX);
+}
+
+// 最近聊天记录；skip = 末尾要跳过的条数（正在问的那批已经进历史了，别重复）
+function histText(roomId, skip) {
+  const all = HIST.get(roomId) || [];
+  const arr = skip ? all.slice(0, Math.max(0, all.length - skip)) : all;
+  if (!arr.length) return '';
+  return arr.map((m) => `${m.self ? '我' : m.name}：${m.text}`).join('\n');
+}
+
+async function askDsh(roomId, batch) {
+  const now = batch.map((m) => `${m.name}：${m.text}`).join('\n');
+  const recent = histText(roomId, batch.length);
+  const parts = [];
+  if (recent) parts.push('【刚才群里在聊】\n' + recent);
+  parts.push('【现在要回的消息】\n' + now);
+  parts.push('（你在一个网页聊天室的群里，像群友一样接着聊，别复述上面的记录，别用 Markdown。）');
+  const line = parts.join('\n\n');
   try {
     const out = await brainClient().ask(roomId, line, { timeoutMs: 150000 });
     if (out && out.trim()) return out.trim();
@@ -85,6 +133,59 @@ async function askDsh(roomId, msg) {
     log('DSH 没接上，改问站里:', err.message);
   }
   return askStation(roomId, line);
+}
+
+// 把一个房间攒着的消息一次性答掉；答完再看有没有新的
+async function drain(roomId) {
+  if (busy.has(roomId)) return;
+  busy.add(roomId);
+  try {
+    for (;;) {
+      const batch = PENDING.get(roomId) || [];
+      if (!batch.length) break;
+      PENDING.set(roomId, []);
+      const answer = DSH_ON ? await askDsh(roomId, batch) : await askStation(roomId, batch.map((m) => `${m.name}：${m.text}`).join('\n'));
+      if (answer) {
+        send({ type: 'send', roomId, text: answer });
+        pushHist(roomId, '', answer, true);
+        log(`回 ${roomId}: ${answer.slice(0, 50)}`);
+      }
+    }
+  } catch (err) {
+    log('站里没回上:', err.message);
+  } finally {
+    busy.delete(roomId);
+    // 收尾这瞬间又来了消息的话，别让它一直躺在队列里
+    if ((PENDING.get(roomId) || []).length) setTimeout(() => drain(roomId), 50);
+  }
+}
+
+function queueMessage(roomId, msg) {
+  const name = msg.senderName || '有人';
+  const text = String(msg.text || '');
+  const isBot = msg.kind === 'bot';
+  pushHist(roomId, name, text, false);
+  // 私聊一定回；群里像 QQ 那样，被点名/被问才回，别的鱼说话只在叫到我时接
+  const isDm = roomId.startsWith('dm:');
+  const addressed = looksAddressed(text);
+  if (!isDm) {
+    if (isBot && !(BOT_NAME && text.includes(BOT_NAME))) return;
+    if (!isBot && !addressed) return;
+  }
+  let arr = PENDING.get(roomId);
+  if (!arr) {
+    arr = [];
+    PENDING.set(roomId, arr);
+  }
+  arr.push({ name, text });
+  const t = debounceTimers.get(roomId);
+  if (t) clearTimeout(t);
+  const timer = setTimeout(() => {
+    debounceTimers.delete(roomId);
+    drain(roomId);
+  }, DEBOUNCE_MS);
+  if (timer.unref) timer.unref();
+  debounceTimers.set(roomId, timer);
 }
 
 async function askStation(roomId, text) {
@@ -165,23 +266,13 @@ function watchOwner() {
   s.addEventListener('error', () => {});
 }
 
-async function onMessage(data) {
+function onMessage(data) {
   const msg = data.message;
   if (!msg || msg.senderId === data.botId) return;
   const roomId = data.roomId;
-  if (!roomId || busy.has(roomId)) return;
-  busy.add(roomId);
-  try {
-    const answer = DSH_ON ? await askDsh(roomId, msg) : await askStation(roomId, `${msg.senderName || '有人'}：${msg.text}`);
-    if (answer) {
-      send({ type: 'send', roomId, text: answer });
-      log(`回 ${roomId}: ${answer.slice(0, 50)}`);
-    }
-  } catch (err) {
-    log('站里没回上:', err.message);
-  } finally {
-    busy.delete(roomId);
-  }
+  if (!roomId) return;
+  if (msg.kind === 'system') return;
+  queueMessage(roomId, msg);
 }
 
 function connect() {
@@ -200,6 +291,7 @@ function connect() {
       return;
     }
     if (d.type === 'hello') {
+      if (d.bot && d.bot.name) BOT_NAME = String(d.bot.name);
       log(`上线：${d.bot.name}，已在 ${(d.groups || []).length} 个群`);
       return;
     }
@@ -227,7 +319,13 @@ function connect() {
       log('状态变了:', bits.length ? bits.join('，') : '正常');
       return;
     }
-    if (d.type === 'message') onMessage(d).catch((e) => log('处理消息失败:', e.message));
+    if (d.type === 'message') {
+      try {
+        onMessage(d);
+      } catch (e) {
+        log('处理消息失败:', e.message);
+      }
+    }
   });
   ws.addEventListener('close', () => {
     stopPing();
