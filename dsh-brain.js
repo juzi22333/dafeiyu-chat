@@ -4,7 +4,7 @@
  *
  * 干的事：
  *   1. 读本机 DSH 的 browser-session 密钥，自己铸一个鉴权 Cookie
- *   2. 给每条鱼在 DSH 里开一个会话（agentPreset = qq-chat，只有网页/记忆类工具，没有本地执行权）
+ *   2. 给每条鱼在 DSH 里开一个会话（agentPreset 默认 room-chat：本地命令/文件/搜索/联网/任务/记忆全给）
  *   3. 有人说话 → 往那个会话里提一句 → 从 remote.mux 事件流里收这一回合的正文
  *
  * 为什么要自己铸 Cookie：DSH 的 HTTP/WS 接口都验这个 Cookie，裸 fetch 会 401。
@@ -20,7 +20,9 @@ const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
 const CRED_FILE = path.join(DSH_HOME, '.credentials.yaml');
 const SESSION_FILE = path.join(__dirname, 'data', 'room-dsh-sessions.json');
 const DEFAULT_BASE = process.env.DSH_BASE_URL || 'http://127.0.0.1:50390';
-const DEFAULT_PRESET = process.env.DSH_ROOM_PRESET || 'qq-chat';
+// 聊天室的鱼要用 DSH 的全部能力（模型/插件/会话/记忆），所以默认走 room-chat。
+// 想换回聊天专用档（无本地工具）可以设 DSH_ROOM_PRESET=qq-chat。
+const DEFAULT_PRESET = process.env.DSH_ROOM_PRESET || 'room-chat';
 
 const COOKIE_LIFETIME_MS = 60 * 60 * 1000;
 const COOKIE_REFRESH_MARGIN_MS = 5 * 60 * 1000;
@@ -100,6 +102,8 @@ class DshBrain {
   constructor(baseUrl = DEFAULT_BASE, preset = DEFAULT_PRESET) {
     this.baseUrl = String(baseUrl).replace(/\/+$/, '');
     this.preset = preset;
+    // 实际生效的档：对方 DSH 没有这个 preset 时会退回 qq-chat，记下来免得反复试
+    this.effectivePreset = null;
     this._cookie = null;
     this._cookieExpiresAt = 0;
     this._sessions = loadSessions();
@@ -162,17 +166,39 @@ class DshBrain {
 
   async ensureSession(key) {
     const saved = this._sessions[key];
-    if (saved && saved.sessionId && saved.workspaceId) {
+    // 缓存里的会话如果换了 preset（比如以前是 qq-chat，现在要 room-chat），
+    // 直接复用会继续用旧的能力面 —— 所以要按 preset 对一下，不一致就重开。
+    // effectivePreset 是「这次实际用上的档」：想用 room-chat 但对方 DSH 没装，会退成 qq-chat，
+    // 退过之后就别每句话都重新开一个会话。
+    const target = this.effectivePreset || this.preset;
+    if (saved && saved.sessionId && saved.workspaceId && (!saved.preset || saved.preset === target)) {
       return saved;
     }
+    if (saved && saved.preset && saved.preset !== target) {
+      log('会话 preset 变了，重开:', key, saved.preset, '->', target);
+      delete this._sessions[key];
+      saveSessions(this._sessions);
+    }
     const workspaceId = await this.ensureWorkspace();
-    const value = await this.call('session.create', { workspaceId, agentPreset: this.preset });
+    let preset = this.preset;
+    let value;
+    try {
+      value = await this.call('session.create', { workspaceId, agentPreset: preset });
+    } catch (err) {
+      // 对方的 DSH 没装 room-chat（比如只跑了一键部署、没跑 QQ 桥接的 preset 生成器）：
+      // 别让鱼直接哑掉，退到内置的 qq-chat 再试一次，只是没有本地工具。
+      if (preset === 'qq-chat') throw err;
+      log('preset 用不了，退回 qq-chat:', preset, err.message);
+      preset = 'qq-chat';
+      value = await this.call('session.create', { workspaceId, agentPreset: preset });
+    }
     const sessionId = value && value.sessionId;
     if (!sessionId) throw new Error('DSH 没给 sessionId');
-    const next = { sessionId, workspaceId, preset: this.preset, updatedAt: Date.now() };
+    this.effectivePreset = preset;
+    const next = { sessionId, workspaceId, preset, updatedAt: Date.now() };
     this._sessions[key] = next;
     saveSessions(this._sessions);
-    log('新建 DSH 会话', key, sessionId, 'preset=' + this.preset);
+    log('新建 DSH 会话', key, sessionId, 'preset=' + preset);
     return next;
   }
 

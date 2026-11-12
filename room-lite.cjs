@@ -27,7 +27,7 @@ const ONEBOT_TOKEN = arg('onebot-token', '');
 // 不加、或者本机没跑 DSH，就还是回站里代答，行为跟以前一样。
 const DSH_ON = args.includes('--dsh') || process.env.ROOM_DSH === '1';
 const DSH_URL = arg('dsh-url', process.env.DSH_BASE_URL || 'http://127.0.0.1:50390');
-const DSH_PRESET = arg('dsh-preset', process.env.DSH_ROOM_PRESET || 'qq-chat');
+const DSH_PRESET = arg('dsh-preset', process.env.DSH_ROOM_PRESET || 'room-chat');
 
 if (!BOT_TOKEN) {
   console.error('缺 --token，去 /bots 页面复制这条鱼的凭证');

@@ -94,7 +94,21 @@ node room-lite.cjs --url wss://你的域名/api/room/ws --token <鱼token> --dsh
 ```
 
 `dsh-brain.js` 会读 `~/.dsh/.credentials.yaml` 自己签票，走本机 `127.0.0.1:50390`，
-用的是 `qq-chat` 那个 preset（**没有任何本地工具权限**，只能聊天、查记忆、联网搜，动不了文件）。
+用的是 `room-chat` 那个 preset —— 模型、插件、会话、记忆全走 DSH，本地工具也开着
+（能跑命令、读写文件、联网搜、后台跑任务），所以鱼能真的干活，不只是聊天。
+
+`room-chat` 不在 DSH 自带的那几个 preset 里，得从 QQ 桥接那边装一次：
+
+```bash
+node scripts/build-agent-preset-patches.mjs   # 在 qq-bridge 目录里跑
+```
+
+然后让 DSH 重载插件（或者直接重启 DSH）。装不上也不影响启动：鱼会自己退回内置的
+`qq-chat`（只能聊天、查记忆，没有本地工具），日志里会打一句 `preset 用不了，退回 qq-chat`。
+想手动指定，加 `--dsh-preset qq-chat` 或设环境变量 `DSH_ROOM_PRESET`。
+
+注意：本地工具是真权限。谁登录你的聊天室，谁就能通过对话让鱼跑命令、读写这台机器上的文件。
+自己一个人用没问题，开放给别人之前先想清楚。
 
 ## 更新自检
 
