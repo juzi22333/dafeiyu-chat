@@ -1641,6 +1641,146 @@ async function boot() {
   }
 }
 
+/* ------------------------------- 下拉刷新 -------------------------------
+   站里 body 是 position:fixed、页面本身不会原生滚动，所以浏览器自带的下拉刷新
+   永远不会触发；这里自己实现：在消息列表和各个滚动区顶部往下拽，松手就重新拉数据。
+   只在下拉到顶（scrollTop === 0）时起手，横着划直接放弃（交给 App 壳子的右滑返回）。 */
+const PULL_TRIGGER = 58;
+const PULL_MAX = 104;
+
+function pullTip() {
+  let tip = document.getElementById('pullTip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'pull-tip';
+    tip.id = 'pullTip';
+    tip.innerHTML = '<i class="pull-spin"></i><span id="pullTipTxt">下拉刷新</span>';
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+
+function pullTxt(t) {
+  const el = document.getElementById('pullTipTxt');
+  if (el) el.textContent = t;
+}
+
+async function pullRefresh() {
+  const tip = pullTip();
+  tip.classList.add('on', 'busy');
+  pullTxt('刷新中…');
+  try {
+    await refreshMe();
+    if (state.roomId) await loadMessages({ stickBottom: false });
+  } catch (err) {
+    tip.classList.remove('busy');
+    pullTxt('没刷新成功');
+    setTimeout(() => tip.classList.remove('on'), 800);
+    return;
+  }
+  tip.classList.remove('busy');
+  pullTxt('已刷新');
+  setTimeout(() => tip.classList.remove('on'), 520);
+}
+
+function bindPull(el) {
+  if (!el || el.dataset.pullBound === '1') return;
+  el.dataset.pullBound = '1';
+  let startY = 0;
+  let startX = 0;
+  let dist = 0;
+  let dragging = false;
+  let dead = false;
+
+  el.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length !== 1) {
+        dead = true;
+        return;
+      }
+      dead = el.scrollTop > 0;
+      dragging = false;
+      dist = 0;
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+    },
+    { passive: true }
+  );
+
+  el.addEventListener(
+    'touchmove',
+    (e) => {
+      if (dead || e.touches.length !== 1) return;
+      const dy = e.touches[0].clientY - startY;
+      const dx = e.touches[0].clientX - startX;
+      if (dy <= 0) {
+        if (dragging) {
+          dragging = false;
+          dist = 0;
+          pullTip().classList.remove('on', 'ready');
+        }
+        return;
+      }
+      if (!dragging) {
+        if (Math.abs(dx) > Math.abs(dy) * 0.8) {
+          dead = true;
+          return;
+        }
+        if (el.scrollTop > 0) {
+          dead = true;
+          return;
+        }
+        dragging = true;
+      }
+      e.preventDefault();
+      dist = Math.min(PULL_MAX, dy * 0.55);
+      const tip = pullTip();
+      tip.classList.add('on');
+      tip.classList.toggle('ready', dist >= PULL_TRIGGER);
+      tip.style.transform = 'translate(-50%, ' + Math.round(dist - 46) + 'px)';
+      pullTxt(dist >= PULL_TRIGGER ? '松手刷新' : '下拉刷新');
+    },
+    { passive: false }
+  );
+
+  el.addEventListener(
+    'touchend',
+    () => {
+      if (!dragging) return;
+      dragging = false;
+      const tip = pullTip();
+      tip.style.transform = '';
+      tip.classList.remove('ready');
+      if (dist >= PULL_TRIGGER) pullRefresh();
+      else {
+        tip.classList.remove('on');
+        dist = 0;
+      }
+    },
+    { passive: true }
+  );
+
+  el.addEventListener(
+    'touchcancel',
+    () => {
+      dragging = false;
+      dist = 0;
+      const tip = pullTip();
+      tip.style.transform = '';
+      tip.classList.remove('on', 'ready', 'busy');
+    },
+    { passive: true }
+  );
+}
+
+function initPullRefresh() {
+  pullTip();
+  bindPull($('#messages'));
+  bindPull($('#roomList'));
+  for (const el of $$('.scroll-area')) bindPull(el);
+}
+
 /* 设置页底部那行版本号：直接问服务端要，这样用户那边是不是最新一眼就看出来，
    不用再靠「你重装一下试试」。拿不到就退回一个模糊的说明，别显示错版本。 */
 async function showVersion() {
@@ -1957,6 +2097,8 @@ document.addEventListener('DOMContentLoaded', () => {
       connectWS();
     }
   });
+
+  initPullRefresh();
 
   boot();
   reportRoute();
