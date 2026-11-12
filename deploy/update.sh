@@ -20,7 +20,15 @@ if [ -n "$(git status --porcelain 2>/dev/null || true)" ]; then
   git stash push -u -m "update.sh 自动暂存 $(date +%Y%m%d-%H%M%S)" >/dev/null && STASHED=1
   echo "本地改动已暂存"
 fi
-git pull --ff-only
+BRANCH="${BRANCH:-master}"
+if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+  git pull --ff-only
+else
+  # 克隆/reset 出来的仓库可能没有 upstream，直接对 origin 的对应分支做快进
+  git fetch origin "$BRANCH"
+  git merge --ff-only "origin/$BRANCH"
+  git branch --set-upstream-to="origin/$BRANCH" "$BRANCH" >/dev/null 2>&1 || true
+fi
 
 if [ "$STASHED" = "1" ]; then
   git stash pop || echo "!! 本地改动和上游冲突了，改动还在 stash 里（git stash list 看）"
