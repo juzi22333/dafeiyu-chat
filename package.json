@@ -1,6 +1,6 @@
 {
   "name": "dafeiyu-chat",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "private": false,
   "description": "对接大肥鱼（DeepSeek 鲸鱼娘）的轻量网页聊天软件，零依赖 Node 服务",
   "main": "server.js",

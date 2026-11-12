@@ -20,3 +20,5 @@ _tmp*
 node_modules/
 .DS_Store
 Thumbs.db
+_repo.bundle
+_mirrortest.sh
